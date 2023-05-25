@@ -92,7 +92,7 @@ static int uio_universal_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id uio_universal_match[] = {
-	{ .compatible = "ns16550a-uio", },
+	{ .compatible = "uio-universal", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, uio_universal_match);

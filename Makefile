@@ -10,13 +10,13 @@ default:
 clean:
 	rm -rf .tmp_versions Module.symvers *.mod *.mod.c *.o *.ko .*.cmd built-in.a Module.markers modules.order .cache.mk
 load:
-	insmod uio.ko
+	insmod uio_universal.ko
 unload:
-	rmmod uio
+	rmmod uio_universal
 install:
-	cp uio.ko /lib/modules/$(shell uname -r)/kernel/drivers/uio.ko
+	cp uio_universal.ko /lib/modules/$(shell uname -r)/kernel/drivers/uio_universal.ko
 else
-	obj-m := uio.o
-	uio-objs := \
+	obj-m := uio_universal.o
+	uio_universal-objs := \
 		$(call FIND_SRC_FILE,.)
 endif
