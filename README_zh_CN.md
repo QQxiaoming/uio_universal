@@ -22,3 +22,20 @@ make load
 ```shell
 make unload
 ```
+
+# 示例 dts
+
+```dts
+    uart1:uart1@10001000 {
+        interrupts = <11>;
+        interrupt-parent = <&plic>;
+        clock-frequency = <0x384000>;
+        reg = <0x0 0x10001000 0x0 0x100>;
+        compatible = "uio-universal";
+        uio-name = "ns16550a";
+    };
+```
+
+# 更多
+
+当前代码仍属于最初阶段，尚未达到稳定可用的程度。

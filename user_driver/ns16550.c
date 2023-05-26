@@ -111,26 +111,150 @@ int read_uio_vsync(int fd_dev, int timeout_ms) {
     return -1;
 }
 
-
-int main(int argc, char **argv)
+int detect_dev(int dev_num, const char *name)
 {
-    int fd_dev = open("/dev/uio0", O_RDWR);
+    int fd_sysfs,sysfs_len;
+    char sysfs_buf[256];
+    char sysfs_path[256];
+
+    sprintf(sysfs_path, "/sys/class/uio/uio%d/name", dev_num);
+
+    fd_sysfs = open(sysfs_path, O_RDONLY);
+    if (fd_sysfs < 0) {
+        printf("open sysfs failed\n");
+        return -1;
+    }
+    sysfs_len = read(fd_sysfs, sysfs_buf, sizeof(sysfs_buf));
+    if (sysfs_len < 0) {
+        printf("read sysfs failed\n");
+        close(fd_sysfs);
+        return -1;
+    }
+    sysfs_buf[sysfs_len] = '\0';
+    if (strncmp(sysfs_buf, "uio_universal", strlen("uio_universal")) != 0) {
+        printf("device name not match\n");
+        close(fd_sysfs);
+        return -1;
+    }
+    close(fd_sysfs);
+
+    sprintf(sysfs_path, "/sys/class/uio/uio%d/maps/map0/name", dev_num);
+
+    fd_sysfs = open(sysfs_path, O_RDONLY);
+    if (fd_sysfs < 0) {
+        printf("open sysfs failed\n");
+        return -1;
+    }
+    sysfs_len = read(fd_sysfs, sysfs_buf, sizeof(sysfs_buf));
+    if (sysfs_len < 0) {
+        printf("read sysfs failed\n");
+        close(fd_sysfs);
+        return -1;
+    }
+    sysfs_buf[sysfs_len] = '\0';
+    if (strncmp(sysfs_buf, name, strlen(name)) != 0) {
+        printf("device name not match\n");
+        close(fd_sysfs);
+        return -1;
+    }
+    close(fd_sysfs);
+
+    return 0;
+}
+
+int get_dev_map_size(int dev_num, uint32_t *map_size) 
+{
+    char sysfs_path[256];
+    sprintf(sysfs_path, "/sys/class/uio/uio%d/maps/map0/size", dev_num);
+
+    int fd_sysfs = open(sysfs_path, O_RDONLY);
+    if (fd_sysfs < 0) {
+        printf("open sysfs failed\n");
+        return -1;
+    }
+    char sysfs_buf[256];
+    int sysfs_len = read(fd_sysfs, sysfs_buf, sizeof(sysfs_buf));
+    if (sysfs_len < 0) {
+        printf("read sysfs failed\n");
+        return -1;
+    }
+    sysfs_buf[sysfs_len] = '\0';
+    *map_size = strtoul(sysfs_buf, NULL, 0);
+    close(fd_sysfs);
+
+    return 0;
+}
+
+int open_dev(int dev_num, uint32_t map_size)
+{
+    char dev_path[256];
+    sprintf(dev_path, "/dev/uio%d", dev_num);
+    int fd_dev = open(dev_path, O_RDWR);
     if (fd_dev < 0) {
         printf("open device failed\n");
         return -1;
     }
 
     NS16550_ADDR = (uint8_t *)mmap(
-        NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, fd_dev, 0);
+        NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_dev, 0);
     if(NS16550_ADDR == MAP_FAILED) {
         printf("mmap failed\n");
+        close(fd_dev);
+        return -1;
+    }
+
+    return fd_dev;
+}
+
+void close_dev(int fd_dev, uint32_t map_size)
+{
+    munmap(NS16550_ADDR, map_size);
+    close(fd_dev);
+}
+
+#define DEV_NUM  (0)
+#define DEV_NAME "ns16550a"
+
+int main(int argc, char **argv)
+{
+    int dev_num = DEV_NUM;
+    const char *dev_name = DEV_NAME;
+    uint32_t map_size = 0;
+    int dev_fd = -1;
+
+    for(int k = 1; k < argc; k++) {
+        if(strcmp(argv[k], "-dev_num") == 0){
+            dev_num = atoi(argv[++k]);
+            printf("sbm_ch %d\n", dev_num);
+        }
+        if(strcmp(argv[k], "-dev_name") == 0){
+            dev_name = argv[++k];
+            printf("dev_name %s\n", dev_name);
+        }
+        if(strcmp(argv[k], "-h") == 0){
+            printf("Usage: %s [-dev_num <dev_num>] [-dev_name <dev_name>]\n", argv[0]);
+            return 0;
+        }
+    }
+
+    if(detect_dev(dev_num, dev_name) < 0) {
+        printf("detect device failed\n");
+        return -1;
+    }
+
+    if(get_dev_map_size(dev_num, &map_size) < 0) {
+        printf("get device map size failed\n");
+        return -1;
+    }
+
+    if(dev_fd = open_dev(dev_num, map_size) < 0) {
+        printf("open device failed\n");
         return -1;
     }
 
     debug_log("hello world\n");
 
-    munmap(NS16550_ADDR, 0x1000);
-    close(fd_dev);
+    close_dev(dev_fd, map_size);
 
     return 0;
 }

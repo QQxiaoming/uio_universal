@@ -44,6 +44,8 @@ static int uio_universal_probe(struct platform_device *pdev)
 	int err;
 	struct resource *res;
 	struct uio_mem *uiomem;
+	const char *uio_name;
+	struct device_node *np = pdev->dev.of_node;
 
 	uioudrv = devm_kzalloc(&pdev->dev, sizeof(*uioudrv), GFP_KERNEL);
 	if (!uioudrv)
@@ -61,14 +63,18 @@ static int uio_universal_probe(struct platform_device *pdev)
 	if (uioudrv->irq < 0)
 		return -ENODEV;
 
+	if (of_property_read_string(np, "uio-name", &uio_name) < 0) {
+		return -EINVAL;
+	}
+
 	err = devm_request_irq(&pdev->dev, uioudrv->irq,
 			       uio_universal_irq_hander,
 			       0, pdev->name, uioudrv);
 	if (err)
 		return err;
 
-	uioudrv->info.name = "xvs";
-	uioudrv->info.version = "0";
+	uioudrv->info.name = "uio_universal";
+	uioudrv->info.version = "0.0.1";
 	uioudrv->info.irq = UIO_IRQ_CUSTOM;
 	uioudrv->info.mmap = mmap;
 
@@ -79,7 +85,7 @@ static int uio_universal_probe(struct platform_device *pdev)
 	uiomem->size =
 		(uiomem->offs + resource_size(res) + PAGE_SIZE - 1) &
 		PAGE_MASK;
-	uiomem->name = res->name;
+	uiomem->name = uio_name;
 
 	return uio_register_device(&pdev->dev, &uioudrv->info);
 }
